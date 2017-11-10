@@ -1,0 +1,8 @@
+## Firefox Browser Analysis
+Created by **Stuart King**, May 2016
+
+This repository is a collection of documents and files used to analyze Mozilla Firefox user actvitiy. Analysis was initiated and guided using the below prompt, with data coming from three database tables on a PostgreSQL server. The data documentation file within this repository provides supplemental information related to the data used in this study. This repository also includes a narrative summary of research and findings, a MS Excel file containing created visualizations, a text file including all SQL queries written, and my final presentation slide deck.
+
+## Prompt
+
+It's 2010 and you are a junior product manager working on Mozilla Firefox. You are chatting with an opinionated colleague of yours, and you ask her thoughts about your idea to revamp the bookmarks experience. She says that bookmarks aren't interesting and you should help her in her quest to improve support for having a large number of tabs instead. Your boss has asked you to put together a presentation recommending an area of focus for the next version of Firefox. Considering the analytics workflow, you decide to look at a recent week-long test flight with customer surveys and usage analytics to better inform your thinking before deciding which of the two areas to recommend. Your company, Mozilla, is running their own PostgreSQL server, and the engineers that designed the survey have added that data to three database tables: **events, survey, and users**. Connect to the server using the software of your choice, navigate to the database, and use the data to help make your decision.

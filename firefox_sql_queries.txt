@@ -1,0 +1,316 @@
+﻿SQL Queries
+Firefox_Analysis
+Stuart King
+
+/*Key = id*/
+select *
+from users
+limit 10
+;
+
+/*Key = user_id*/
+select *
+from survey
+limit 10
+;
+
+/*Key = user_id*/
+select *
+from events
+limit 10
+;
+
+/*USERS*/
+
+/*How many total users are there? 27,267*/
+select count(distinct id)
+from users
+;
+
+/*How many of the total users completed the survey? 4,801*/
+select count(distinct user_id)
+from survey
+;
+
+/*What is the percentage of users who took the survey 14.97%*/
+select avg(users_took_survey)*100
+from (
+select *,
+case
+when a.id = b.user_id then 1
+else 0
+end as users_took_survey
+from users as a left join survey as b
+on a.id = b.user_id)
+as temp
+;
+
+/*What is the number of survey takers that have at least one year of Firefox experience? 3,701*/
+select cast(count(q1) as numeric)
+from survey
+where cast(q1 as numeric)>=3
+;
+
+/*What is the fraction of users new to Firefox (less than 90 days)? 5.3%*/
+select avg(new_to_fx)*100
+from (
+select *,
+case
+when cast(q1 as integer)=0 then 1
+else 0
+end as new_to_fx
+from survey)
+as temp
+;
+
+/* What is the fraction of users that are long term users (over 365 days)? 90.7% */
+select avg(old_to_fx)*100
+from (
+select *,
+case
+when cast(q1 as integer)>=3 then 1
+else 0
+end as old_to_fx
+from survey)
+as temp
+;
+
+/*What fraction use Firefox as their primary browser? 82.4%*/
+select avg(fx_pri_brows)*100
+from (
+select *,
+case
+when cast(q4 as integer)<=1 then 1
+else 0
+end as fx_pri_brows
+from survey)
+as temp
+;
+
+/*What fraction use Firefox as their primary browser and are long term users? 76.4%*/
+select avg(old_pri_brows)*100
+from (
+select *,
+case
+when cast(q4 as integer)<=1 and cast(q1 as integer)>=3 then 1
+else 0
+end as old_pri_brows
+from survey)
+as temp
+;
+
+/* Which versions of firefox are being used? Version 4*/
+select fx_version, count(*)
+from users
+group by fx_version
+order by 2 desc
+;
+
+/*What is the fraction of users that are primary, long-term users (over 365 days) and are using version 4 or above of Firefox? 73.4%*/
+/*These are my target users*/
+select avg(old_v4)*100
+from (
+select *,
+case
+when cast(b.q1 as integer)>=3 and cast(b.q4 as integer)<=1 and fx_version like '%4%' and fx_version <> '3.5.14' then 1
+else 0
+end as old_v4
+from users as a right join survey as b
+on a.id = b.user_id)
+as temp
+;
+
+/*How many target users do I have? 2,997 total target users*/
+select count(target)
+from (
+select *,
+case
+when cast(b.q1 as integer)>=3 and cast(b.q4 as integer)<=1 and fx_version like '%4%' and fx_version <> '3.5.14' then 1
+else 0
+end as target
+from users as a right join survey as b
+on a.id = b.user_id)
+as temp
+where target=1
+;
+
+/*Temporary table that returns my target user sub-group*/
+select id, q1, q4, q6, fx_version, target
+into temporary prelim_target
+from (
+select *,
+case
+when cast(b.q4 as integer)<=1 and cast(b.q1 as integer)>=3 and fx_version like '%4%' and fx_version <> '3.5.14' then 1
+else 0
+end as target
+from users as a right join survey as b
+on a.id = b.user_id) as temp
+;
+
+drop table if exists prelim_target
+
+/*What fraction of target users is less than 35 years old? 77%*/
+select avg(target_age)*100
+from (
+select *,
+case
+when cast(a.q6 as integer)<3 then 1
+else 0
+end as target_age
+from prelim_target as a left join events as b
+on a.id = b.user_id) as temp
+where target=1
+;
+
+/*What is the distribution of how long primary users using version 4 or above have used Firefox?*/
+/*Results exported to Excel to create histogram*/
+select q1
+from users as a right join survey as b
+on a.id = b.user_id
+where cast(q4 as integer)<=1 and fx_version like '%4%' and fx_version <> '3.5.14' and q1 notnull
+;
+
+/*BOOKMARKS*/
+
+/*What's the average number of bookmarks for all users? 107 bookmarks*/
+select avg(cast(replace(data1,'total bookmarks','')as numeric))
+from events
+where event_code=8
+;
+
+/*What's the average number of bookmarks for target users? 255 bookmarks*/
+select avg(cast(replace(data1,'total bookmarks','')as numeric))
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and event_code=8
+;
+
+/*What fraction of target users launched (i.e., clicked on) at least one bookmark during the sample week?*/
+/* 901 / 2,997 = 30.1% */
+select count(distinct id)
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and event_code=10
+;
+
+/*What's the total number of bookmark actions taken by target users? 9,443*/
+/*What's the average number of bookmark interactions per target user? 9,443 / 2,997 = 3.2 bookmark interactions per target user*/
+select count(event_code)
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and (event_code=9 or event_code=10 or event_code=11)
+;
+
+/*What's the distribution of how often bookmarks were used by target users during the sample week?*/
+/*Results exported to Excel to create a histogram*/
+select id, count(event_code)
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and (event_code=9 or event_code=10 or event_code=11)
+group by id
+;
+
+/*How does number of bookmarks per target user correlate with how long the user has been using Firefox?*/
+/*Did not find this correlation because my target users are already narrowed to users who have used FX for longer than 1 year*/
+
+/*How does the size of a bookmark directory correlate to bookmark usage?
+Exported results of two queries to Excel to run correlation*/
+select id, q6, count(event_code)
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and (event_code=9 or event_code=10 or event_code=11)
+group by id, q6
+;
+
+select id, cast(replace(data1,'total bookmarks','')as numeric)
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and event_code=8
+group by id, cast(replace(data1,'total bookmarks','')as numeric)
+order by 1
+;
+
+/*TABS*/
+
+/*What's the distribution of maximum number of tabs?*/
+/*Results exported to Excel to create a histogram*/
+select id, max(cast(replace(data2,'tabs','') as numeric))
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and event_code=26
+group by id
+;
+
+/*What’s the average number of tabs open by target users? 8.0*/
+select avg(cast(replace(data2, 'tabs', '') as numeric))
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and event_code=26
+;
+
+/*Are there target users who regularly have more than 10 tabs open? 180 target users with average tabs >10*/
+/* 180 / 2,997 = 6.0% of target users*/
+select user_id, avg(cast(replace(data2,'tabs','') as integer))
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and event_code=26
+group by user_id
+having avg(cast(replace(data2,'tabs','') as integer))>10
+order by 2
+;
+
+/*What fraction of target users have ever had more than 5 tabs open? 36.7%*/
+/*10 tabs open? 18.1%*/
+/*15 tabs open? 10.8%*/
+select avg(tabs_open)*100
+from (
+select*,
+case
+when cast(replace(data2,'tabs','') as integer)>5 then 1
+else 0
+end as tabs_open
+from prelim_target as a left join events as b
+on a.id = b.user_id) as temp
+where event_code=26 and target=1
+;
+
+/*How does the number of open tabs correlate with memory usage?*/
+/*Exported two tables to Excel to run correlation*/
+select id, avg(cast(data2 as numeric))
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and event_code=19 and data2<>''
+group by id
+order by 1
+;
+
+select id, avg(cast(replace(data2,'tabs','') as integer))
+from prelim_target as a left join events as b
+on a.id = b.user_id
+where target=1 and event_code=26 and data2<>''
+group by id
+order by 1
+;
+
+/*Class example for reference only*/
+select user_id, cast(
+case
+when data2 like '%tabs%' then trim(' tabs' from data2)
+else data2
+end as numeric) as tabs
+into temporary tabs_table
+from events
+where event_code =26 and data1 <> '0 windows'
+;
+
+select user_id, event_code, cast(data2 as numeric) as mem_usage
+into temporary mem_table
+from events
+where event_code =19 and data2 <> ''
+limit 1000
+;
+
+select a.user_id, a.tabs, b.mem_usage
+from tabs_table as a inner join mem_table as b
+on a.user_id = b.user_id
+;
